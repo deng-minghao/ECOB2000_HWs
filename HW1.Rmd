@@ -1,75 +1,105 @@
 ---
-title: An R Markdown document converted from "G:/My Drive/My Notes/Econometrics/HW1.ipynb"
+title: HW1
 output: html_document
 ---
 
 Homework #1
 Group 2
 Econ B2000, MA Econometrics
-
-Q1. What are the names of the people in your study group?\
-A: Amira, Muhibul, and Minghao
-
-Q2. Work on the Hawkes stats review. \
-A: There's a purchase required for the material contents - is this needed?
-
-Q3. Before class, you should have done about 20 experiments where you roll the dice and record whether the result was a 6 or not.
-
-Q4. Open up R (on laptop or cloud). Replicate the commands given in the lecture notes R Basics for Lecture 1 to do some simple stats on the Household Pulse data. Those notes request that you find average ages for men and women. Tell me something else interesting, that you learned from the data. Are there surprises for you? We will use this same data for a few exercises so it?s worth getting deeper into it.
+Amira, Muhibul, Minghao
 
 ```{r}
-load('acs2017_ny_data.RData')
-acs2017_ny[1:10,1:7]
-attach(acs2017_ny) #So that each columns can be called individually
+x <- 1:50
+w <- 1 + sqrt(x)/2
+example1 <- data.frame(x=x, y= x + rnorm(x)*w)
+attach(example1)
 ```
 
 ```{r}
-summary(acs2017_ny)
-print(NN_obs <- length(AGE))
+fm <- lm(y ~ x)
+summary(fm)
 ```
 
 ```{r}
-summary(AGE[female == 1])
-summary(AGE[!female])
+lrf <- lowess(x, y)
+plot(x, y)
+lines(x, lrf$y)
+abline(0, 1, lty=3)
+abline(coef(fm))
 ```
 
 ```{r}
-#Average and Standard Deviation of Men in two different ways
-mean(AGE[female == 1])
-sd(AGE[female == 1])
-mean(AGE[!female])
-sd(AGE[!female])
-mean(AGE[ (female == 1) & (AGE<90) ]) 
-hist(AGE[(AGE > 90)])
+detach()
 ```
 
 ```{r}
-str(as.numeric(PUMA))
-PUMA <- as.factor(PUMA)
-female <- as.factor(female)
-educ_indx <- factor((educ_nohs + 2*educ_hs + 3*educ_somecoll + 4*educ_college + 5*educ_advdeg), levels=c(1,2,3,4,5),labels = c("No HS","HS","SmColl","Bach","Adv"))
-head(acs2017_ny[,c(3:7)])
-#allows me to set levels according to education levels.
-levels(female) <- c("male","female")
-#Doing the rest of columns
-print(levels(PUMA))
-print(levels(female))
-print(levels(educ_indx))
+load("Household_Pulse_data.RData")
+#glimpse(acs2017_ny) try this later
+Household_Pulse_data[1:10,1:7]
 ```
 
 
 ```{r}
-library(tidyverse)
-library(dplyr)
-levels_n <- read.csv("PUMA_levels.csv")
-levels_orig <- levels(PUMA) 
-print(levels_orig)
-levels_new <- join(data.frame(levels_orig),data.frame(levels_n))
-print(head(levels_new))
-levels(PUMA) <- levels_new$New_Level
-print(levels(PUMA))
+attach(Household_Pulse_data)
+summary(Household_Pulse_data)
+```
+```{r}
+summary(TBIRTH_YEAR[GENID_DESCRIBE == "female"])
 ```
 
 ```{r}
+summary(TBIRTH_YEAR[GENID_DESCRIBE == "male"])
+```
+
+```{r}
+summary(TBIRTH_YEAR[GENID_DESCRIBE == "transgender"])
+```
+
+```{r}
+summary(TBIRTH_YEAR[GENID_DESCRIBE == "other"])
+```
+
+```{r}
+summary(TBIRTH_YEAR[GENID_DESCRIBE == "NA"])
+```
+
+```{r}
+mean(TBIRTH_YEAR[GENID_DESCRIBE == "female"])
+sd(TBIRTH_YEAR[GENID_DESCRIBE == "female"])
+mean(TBIRTH_YEAR[GENID_DESCRIBE == "male"])
+sd(TBIRTH_YEAR[GENID_DESCRIBE == "male"])
+summary(EEDUC)
 
 ```
+
+I want to see if there's a trend associated with higher education vs vaccination status
+```{r}
+all_doses <- data.frame(matrix(ncol=1+length(summary(EEDUC)),nrow=0))
+colnames(all_doses) <- levels(unique(EEDUC))
+for (i in 1:length(summary(EEDUC))){
+  all_doses[1,i] <- summary(EEDUC[DOSESRV=='yes got all doses' | DOSESRV == 'yes plan to get all doses'])[i] / summary(EEDUC)[i]
+}
+all_doses
+```
+
+I want to also include people who "claim" they are going to get vaccinated. Some people might say vaccination is a good thing but never do it. Let's see what percentage of people actually got vaccinated.
+```{r}
+for (i in 1:length(summary(EEDUC))){
+  all_doses[2,i] <- summary(EEDUC[DOSESRV=='yes got all doses'])[i] / summary(EEDUC)[i]
+}
+all_doses
+
+all_doses[3,] <- all_doses[1,] - all_doses[2,] #for percentage difference
+
+```
+
+
+Some cleaning
+```{r}
+all_doses[8] <- NULL
+all_doses_t <- t(all_doses) #For better viewing
+colnames(all_doses_t) <- c('Included','Not Included','percentage_difference')
+all_doses_t
+```
+
+It's interesting that for each cases, there's a clear trend that with higher level of education, people tend to get vaccinated. It's also interesting to note that the difference between the percentage of people who "claim" they are going to get vaccinated and the percentage of people who actually get vaccinated also has a decreasing trend with higher education. This could suggest that higher education people genuinely believe in getting vaccinated.
