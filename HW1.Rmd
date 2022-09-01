@@ -1,0 +1,75 @@
+---
+title: An R Markdown document converted from "G:/My Drive/My Notes/Econometrics/HW1.ipynb"
+output: html_document
+---
+
+Homework #1
+Group 2
+Econ B2000, MA Econometrics
+
+Q1. What are the names of the people in your study group?\
+A: Amira, Muhibul, and Minghao
+
+Q2. Work on the Hawkes stats review. \
+A: There's a purchase required for the material contents - is this needed?
+
+Q3. Before class, you should have done about 20 experiments where you roll the dice and record whether the result was a 6 or not.
+
+Q4. Open up R (on laptop or cloud). Replicate the commands given in the lecture notes R Basics for Lecture 1 to do some simple stats on the Household Pulse data. Those notes request that you find average ages for men and women. Tell me something else interesting, that you learned from the data. Are there surprises for you? We will use this same data for a few exercises so it?s worth getting deeper into it.
+
+```{r}
+load('acs2017_ny_data.RData')
+acs2017_ny[1:10,1:7]
+attach(acs2017_ny) #So that each columns can be called individually
+```
+
+```{r}
+summary(acs2017_ny)
+print(NN_obs <- length(AGE))
+```
+
+```{r}
+summary(AGE[female == 1])
+summary(AGE[!female])
+```
+
+```{r}
+#Average and Standard Deviation of Men in two different ways
+mean(AGE[female == 1])
+sd(AGE[female == 1])
+mean(AGE[!female])
+sd(AGE[!female])
+mean(AGE[ (female == 1) & (AGE<90) ]) 
+hist(AGE[(AGE > 90)])
+```
+
+```{r}
+str(as.numeric(PUMA))
+PUMA <- as.factor(PUMA)
+female <- as.factor(female)
+educ_indx <- factor((educ_nohs + 2*educ_hs + 3*educ_somecoll + 4*educ_college + 5*educ_advdeg), levels=c(1,2,3,4,5),labels = c("No HS","HS","SmColl","Bach","Adv"))
+head(acs2017_ny[,c(3:7)])
+#allows me to set levels according to education levels.
+levels(female) <- c("male","female")
+#Doing the rest of columns
+print(levels(PUMA))
+print(levels(female))
+print(levels(educ_indx))
+```
+
+
+```{r}
+library(tidyverse)
+library(dplyr)
+levels_n <- read.csv("PUMA_levels.csv")
+levels_orig <- levels(PUMA) 
+print(levels_orig)
+levels_new <- join(data.frame(levels_orig),data.frame(levels_n))
+print(head(levels_new))
+levels(PUMA) <- levels_new$New_Level
+print(levels(PUMA))
+```
+
+```{r}
+
+```
