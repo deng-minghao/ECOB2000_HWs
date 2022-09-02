@@ -1,12 +1,10 @@
 ---
-title: HW1
+title: Homework 1
 output: html_document
 ---
 
-Homework #1
-Group 2
-Econ B2000, MA Econometrics
-Amira, Muhibul, Minghao
+#### __Group 3 Econ B2000, MA Econometrics__
+#### Amira, Muhibul, Minghao
 
 ```{r}
 x <- 1:50
@@ -43,6 +41,7 @@ Household_Pulse_data[1:10,1:7]
 attach(Household_Pulse_data)
 summary(Household_Pulse_data)
 ```
+
 ```{r}
 summary(TBIRTH_YEAR[GENID_DESCRIBE == "female"])
 ```
@@ -68,11 +67,10 @@ mean(TBIRTH_YEAR[GENID_DESCRIBE == "female"])
 sd(TBIRTH_YEAR[GENID_DESCRIBE == "female"])
 mean(TBIRTH_YEAR[GENID_DESCRIBE == "male"])
 sd(TBIRTH_YEAR[GENID_DESCRIBE == "male"])
-summary(EEDUC)
-
 ```
 
 I want to see if there's a trend associated with higher education vs vaccination status
+
 ```{r}
 all_doses <- data.frame(matrix(ncol=1+length(summary(EEDUC)),nrow=0))
 colnames(all_doses) <- levels(unique(EEDUC))
@@ -82,7 +80,8 @@ for (i in 1:length(summary(EEDUC))){
 all_doses
 ```
 
-I want to also include people who "claim" they are going to get vaccinated. Some people might say vaccination is a good thing but never do it. Let's see what percentage of people actually got vaccinated.
+I want to also include people who "claim" they are going to get vaccinated. \
+Some people might say vaccination is a good thing but never do it. Let's see what percentage of people actually got vaccinated.
 ```{r}
 for (i in 1:length(summary(EEDUC))){
   all_doses[2,i] <- summary(EEDUC[DOSESRV=='yes got all doses'])[i] / summary(EEDUC)[i]
@@ -94,7 +93,8 @@ all_doses[3,] <- all_doses[1,] - all_doses[2,] #for percentage difference
 ```
 
 
-Some cleaning
+Some cleaning -
+
 ```{r}
 all_doses[8] <- NULL
 all_doses_t <- t(all_doses) #For better viewing
@@ -102,4 +102,6 @@ colnames(all_doses_t) <- c('Included','Not Included','percentage_difference')
 all_doses_t
 ```
 
-It's interesting that for each cases, there's a clear trend that with higher level of education, people tend to get vaccinated. It's also interesting to note that the difference between the percentage of people who "claim" they are going to get vaccinated and the percentage of people who actually get vaccinated also has a decreasing trend with higher education. This could suggest that higher education people genuinely believe in getting vaccinated.
+It's interesting that for each cases, there's a clear trend that with higher level of education, people tend to get vaccinated. \
+It's also interesting to note that the difference between the percentage of people who "claim" they are going to get vaccinated and the percentage of people who actually get vaccinated also has a decreasing trend with higher education. \
+This could suggest that higher education people genuinely believe in getting vaccinated.
