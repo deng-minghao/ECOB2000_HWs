@@ -1,0 +1,79 @@
+---
+title: "HW2"
+output: html_document
+date: "2022-09-08"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Group 3
+### Mahibul, Amira, Minghao
+<p>
+#### **_Part 1. Write-up for experiment - roll the dice._**
+<br>
+If a dice is fair, it should roll each number approximately the same number of times if I have a large enough try (say 10000). It is obviously impossible to do so unless the payoff of doing such an experiment is high. To accomodate time constraits and to determine the accuracy of rolling a dice, I decided to roll a dice only 35 times and have the following rules set up: </br> 
+<br>1. A fair dice would have an expected value of 3.5, because $\frac{1}{6}*1+\frac{1}{6}*2+\frac{1}{6}*3+\frac{1}{6}*4+\frac{1}{6}*5+\frac{1}{6}*6 = 3.5$. </br>
+<br>2. A fair dice's population variance should follow a discrete probability distribution </br>
+<br> $Var(X) = (x-\mu)^2P(X=x)$, </br>
+<br> Knowing the probability density function, </br>
+<br> $Var(X) = \frac{1}{6}[(1-3.5)^2+(2-3.5)^2+(3-3.5)^2+(4-3.5)^2+(5-3.5)^2+(6-3.5)^2] = 2.9167$ </br>
+3. Given Variance and population average, I can set up a simple hypothesis testing as follows.
+
+<p> Step 1. Setting up my hypothsis
+<br> $H_o: \bar{X} = \mu$ </br>
+<br> $H_1: \bar{X} \ne \mu$ </br>
+</p>
+<p>
+Step 2. Testing to see if my reuslts are within normal range based on stats given above.
+Using $a = 0.1$ because it doesn't have to be that accurate (getting a type I error doesn't cost me anything since I won't go to Las Vegas with this dice). 
+</p>
+
+```{r z_score}
+qnorm(0.05) #For two-tailed test
+```
+<p>
+Step 3. Conclusion
+This means if my result is $\mu - 1.64\frac{Sample\ SD}{\sqrt(35)} < \bar{X} < \mu + 1.64\frac{Sample\ SD}{\sqrt(35)}$, I will conclude that my result isn't statistically significant and I would fail to reject the null hypothesis. In other words, I have a fair dice and vice versa.
+</p>
+</p>
+
+<p>
+#### **_Part 2. Interesting results from data_**
+Initiate the data
+```{r}
+load('Household_Pulse_data.RData')
+attach(Household_Pulse_data)
+```
+
+I want to see if there's a trend associated with higher education vs vaccination status
+
+```{r}
+all_doses <- data.frame(matrix(ncol=1+length(summary(EEDUC)),nrow=0))
+colnames(all_doses) <- levels(unique(EEDUC))
+for (i in 1:length(summary(EEDUC))){
+  all_doses[1,i] <- summary(EEDUC[DOSESRV=='yes got all doses' | DOSESRV == 'yes plan to get all doses'])[i] / summary(EEDUC)[i]
+}
+all_doses
+```
+
+I want to also include people who "claim" they are going to get vaccinated. \
+Some people might say vaccination is a good thing but never do it. Let's see what percentage of people actually got vaccinated.
+```{r}
+for (i in 1:length(summary(EEDUC))){
+  all_doses[2,i] <- summary(EEDUC[DOSESRV=='yes got all doses'])[i] / summary(EEDUC)[i]
+}
+all_doses
+all_doses[3,] <- all_doses[1,] - all_doses[2,] #for percentage difference
+```
+
+
+Some cleaning -
+
+```{r}
+all_doses[8] <- NULL
+all_doses_t <- t(all_doses) #For better viewing
+colnames(all_doses_t) <- c('Included','Not Included','percentage_difference')
+all_doses_t
+```
