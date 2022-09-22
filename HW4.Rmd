@@ -1,0 +1,137 @@
+---
+title: "hw4"
+output: html_document
+date: "2022-09-15"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+__*Team Cassidy, Minghao, Liam*__ \
+The goal is to run knn model on the PUMA code and convert them back into district. To accomplish this, these are the requirements: \
+1. Featured categories in my knn model will be ownershp, housing_cost, inctot, race \
+2. I only consider adults and people who live in NYC. In other word, people living in Long Island/Westchester,etc. will not be considered. (A subset will be created to accomplish this) \
+3. Categorical fields will be normalized to reflect this. (Using norm_varb function) \
+
+To make sure PUMA is correctly implemented, I referred to the PUMA codebook and noticed a pattern:
+1. PUMA code appears to be between 3701 - 4114 \
+2. If I reduce all numbers by 3700, I get: 1-10 are Bronx, 101-110 are Manhattan, 201-203 are staten island, 301-318 are Brooklyn, 401-414 are Queens. \
+3. To rearrange things, I can rank these categories the same way it is being ranked as the borough, so that I get something like this: 1-10 are Bronx, 11-20 are Manhattan, 21-23 are Staten Island, 24-41 are Brooklyn, 42-55 are Queens. \
+4. After running knn, PUMA will be factored back into borough to see if this extra step can improve correctness of predicting boroughs. \
+
+With all of these being said, below are the codes.
+
+```{r}
+library(dplyr)
+load('acs2017_ny_data.RData')
+dat_NYC <- subset(acs2017_ny, (acs2017_ny$in_NYC == 1)&(acs2017_ny$AGE > 18))
+dat_NYC <- dat_NYC %>% mutate(simple_puma = ifelse(PUMA > 3711,ifelse(PUMA>3811,ifelse(PUMA>3904, ifelse(PUMA>4019, PUMA-4059,PUMA-3977),PUMA-3880),PUMA-3790),PUMA-3700))#to create the simplified version of puma
+attach(dat_NYC)
+borough_f <- factor((in_Bronx + 2*in_Manhattan + 3*in_StatenI + 4*in_Brooklyn + 5*in_Queens), levels=c(1,2,3,4,5),labels = c("Bronx","Manhattan","Staten Island","Brooklyn","Queens"))
+puma_f <- as.factor(simple_puma)
+norm_varb <- function(X_in) {
+  (X_in - min(X_in, na.rm = TRUE))/( max(X_in, na.rm = TRUE) - min(X_in, na.rm = TRUE) )
+}
+
+is.na(OWNCOST) <- which(OWNCOST == 9999999) # that's how data codes NA values
+housing_cost <- OWNCOST + RENT
+norm_inc_tot <- norm_varb(INCTOT)
+norm_housing_cost <- norm_varb(housing_cost)
+norm_ownership <- norm_varb(OWNERSHP)
+norm_race <- norm_varb(RACE)
+
+data_use_prelim <- cbind(norm_inc_tot,norm_housing_cost,norm_race,norm_ownership)
+data_use_prelim <- data.frame(data_use_prelim)
+```
+
+```{r}
+
+good_obs_data_use <- complete.cases(data_use_prelim,puma_f)
+dat_use <- subset(data_use_prelim,good_obs_data_use)
+y_use <- subset(puma_f,good_obs_data_use)
+#For borough info as well
+borough1 <- complete.cases(data_use_prelim,borough_f)
+borough_use <- subset(data_use_prelim,borough1)
+actual_borough <- subset(borough_f,borough1)
+set.seed(35)
+NN_obs <- sum(good_obs_data_use == 1)
+select1 <- (runif(NN_obs) < 0.8)
+train_data <- subset(dat_use,select1)
+test_data <- subset(dat_use,(!select1))
+cl_data <- y_use[select1]
+true_data <- actual_borough[!select1]
+```
+
+
+```{r}
+summary(cl_data)
+prop.table(summary(cl_data))
+summary(train_data)
+require(class)
+m = c(11:20)
+m[1] = '11'
+s = c(21:23)
+s[1] = '21'
+b = c(24:41)
+b[1] = '24'
+q = c(42:55)
+q[1] = '42'
+for (indx in seq(1, 9, by= 2)) {
+  pred_PUMA <- knn(train_data, test_data, cl_data, k = indx, l = 0, prob = FALSE, use.all = TRUE)
+  x <- as.numeric(pred_PUMA)
+  x [x<11] = 'Bronx'
+  x [x %in% m] = 'Manhattan'
+  x [x %in% s] = 'Staten Island'
+  x [x %in% b] = 'Brooklyn'
+  x [x %in% q] = 'Queens'
+  num_correct_labels <- sum(x == true_data)
+  correct_rate <- num_correct_labels/length(true_data)
+  print(c(indx,correct_rate))
+}
+```
+Comparing this to just using borough info:
+```{r}
+set.seed(35)
+good_obs_data_use <- complete.cases(data_use_prelim,borough_f)
+dat_use <- subset(data_use_prelim,good_obs_data_use)
+y_use <- subset(borough_f,good_obs_data_use)
+NN_obs <- sum(good_obs_data_use == 1)
+select1 <- (runif(NN_obs) < 0.8)
+train_data <- subset(dat_use,select1)
+test_data <- subset(dat_use,(!select1))
+cl_data <- y_use[select1]
+true_data <- y_use[!select1]
+for (indx in seq(1, 9, by= 2)) {
+  pred_borough <- knn(train_data, test_data, cl_data, k = indx, l = 0, prob = FALSE, use.all = TRUE)
+  num_correct_labels <- sum(pred_borough == true_data)
+  correct_rate <- num_correct_labels/length(true_data)
+  print(c(indx,correct_rate))
+}
+```
+It is interesting that, using a very precise PUMA code actually yielded a much worse results than just using boroughs, and improvement is also marginal when using higher index of knn. \
+
+A better result could potentially be achieved by using more factors, but I also noticed a strong correlation between factors being used and a potential of overfitting based on the trend of the entire survey. Plus, 40% accuracy is pretty good considering I am predicting a person out of 5 boroughs and the theorhetical "random guess" probability is only 20% :) \
+
+Out of curiosity, I will also show this against ols:
+```{r}
+cl_data_n <- as.numeric(cl_data)
+
+model_ols1 <- lm(cl_data_n ~ train_data$norm_inc_tot + train_data$norm_housing_cost + train_data$norm_race + train_data$norm_ownership)
+
+y_hat <- fitted.values(model_ols1)
+
+mean(y_hat[cl_data_n == 1])
+mean(y_hat[cl_data_n == 2])
+mean(y_hat[cl_data_n == 3])
+mean(y_hat[cl_data_n == 4])
+mean(y_hat[cl_data_n == 5])
+
+# maybe try classifying one at a time with OLS
+
+cl_data_n1 <- as.numeric(cl_data_n == 1)
+model_ols_v1 <- lm(cl_data_n1 ~ train_data$norm_inc_tot + train_data$norm_housing_cost+train_data$norm_race + train_data$norm_ownership)
+y_hat_v1 <- fitted.values(model_ols_v1)
+mean(y_hat_v1[cl_data_n1 == 1])
+mean(y_hat_v1[cl_data_n1 == 0])
+```
+And OLS performs even worse than randomly guessing.
