@@ -1,0 +1,102 @@
+---
+title: "hw7"
+output: html_document
+date: "2022-10-27"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Notsafi, Minghao, Amira
+I am keeping only people who are older than 18 so that every one is allowed to work, since I am going to be primarily concerned with people who are working remotely and the salary people are making
+```{r}
+load('Household_Pulse_data_w48.RData')
+library(tidyverse)
+Household_Pulse_data$vaxx <- (Household_Pulse_data$RECVDVACC == "yes got vaxx")
+pick_use1 <- (Household_Pulse_data$TBIRTH_YEAR < 2002) 
+dat_use1 <- subset(Household_Pulse_data, pick_use1)
+
+dat_use1$RECVDVACC <- droplevels(dat_use1$RECVDVACC)
+summary(dat_use1$RECVDVACC)
+```
+As shown, there are some NAs. Although it looks like a very small set of data, I am going to change all the NAs to no, did not get vaxx. People who give more complicated answer than just yes got vaxx most likely didn't get vaccinated, at least not fully vaccinated.
+```{r}
+nas <- dat_use1$RECVDVACC == 'NA'
+dat_use1$RECVDVACC[nas] = 'no did not get vaxx'
+summary(dat_use1$RECVDVACC)
+```
+
+Now that everything is cleared, let's use logit model to try predicting the result
+```{r}
+model_logit1 <- glm(RECVDVACC ~ TBIRTH_YEAR + EEDUC +TWDAYS+REGION+INCOME,
+            family = binomial, data = dat_use1)
+summary(model_logit1)
+
+```
+As shown above, in INCOMEHH, income less than 25K has an extremely high p-value, which means it isn't statistically significant in generating the logit function. Similarly for some hs and hs diploma in EEDUC. That could be improved by assuming a base case.
+```{r}
+dat_use1$eeduc_r <- recode_factor(dat_use1$EEDUC, "less than hs" = "HSol", "some hs" = "HSol", "HS diploma"  = "HSol","some coll" = "ltB", "assoc deg" = "ltB", "bach deg" = "B", "adv deg" = "adv",.default = "D")
+dat_use1$income_r <- recode_factor(dat_use1$INCOME, "NA" = 'lt25k', "HH income $100k - 149" = '125k', "HH income $50k - 74.9"  = "62.5k","HH income $75 - 99.9" = "87.5k", "HH income $200k +" = "200k+", "HH income less than $25k" = 'lt25k',.default = "D")
+summary(dat_use1$eeduc_r)
+summary(dat_use1$income_r)
+```
+After clearing things up, let me re-do the glm:
+```{r}
+set.seed(135)
+select1 <- sample(c(rep(0, 0.8 * nrow(dat_use1)), rep(1, 0.2 * nrow(dat_use1))))
+dat_use2 <- dat_use1[select1==1,]
+dat_predict <- dat_use1[select1==0,]
+model_logit2 <- glm(RECVDVACC ~ TBIRTH_YEAR + eeduc_r +TWDAYS+REGION+income_r,
+            family = binomial, data = dat_use2)
+summary(model_logit2)
+```
+Doing prediction:
+```{r}
+correct = 0
+for (i in 1:nrow(dat_predict)){
+  x <- data.frame(TBIRTH_YEAR=dat_predict$TBIRTH_YEAR[i],
+                  eeduc_r = factor(dat_predict$eeduc_r[i], levels = levels(dat_predict$eeduc_r)),
+                  TWDAYS = factor(dat_predict$TWDAYS[i],levels=levels(dat_predict$TWDAYS)),
+                  REGION = factor(dat_predict$REGION[i],levels=levels(dat_predict$REGION)),
+                  income_r = factor(dat_predict$income_r[i],levels=levels(dat_predict$income_r)))
+  prediction <- 1+exp(-predict(model_logit2,x)) #calculate prediction result
+  result <- ifelse(prediction > 0.5,TRUE,FALSE)
+  if (result == dat_predict$vaxx[i]){
+    correct = correct +1
+    }
+}
+(percent_correct <- correct/nrow(dat_predict))
+```
+This is a great accuracy for the data! Now let me replicate my result in a probit model:
+```{r}
+model_probit <- glm(RECVDVACC ~ TBIRTH_YEAR + eeduc_r +TWDAYS+REGION+income_r,
+            family = binomial, data = dat_use2)
+summary(model_probit)
+```
+
+Doing prediction:
+```{r}
+correct = 0
+for (i in 1:nrow(dat_predict)){
+  x <- data.frame(TBIRTH_YEAR=dat_predict$TBIRTH_YEAR[i],
+                  eeduc_r = factor(dat_predict$eeduc_r[i], levels = levels(dat_predict$eeduc_r)),
+                  TWDAYS = factor(dat_predict$TWDAYS[i],levels=levels(dat_predict$TWDAYS)),
+                  REGION = factor(dat_predict$REGION[i],levels=levels(dat_predict$REGION)),
+                  income_r = factor(dat_predict$income_r[i],levels=levels(dat_predict$income_r)))
+  prediction <- pnorm(predict(model_probit,x)) #calculate prediction result
+  result <- ifelse(prediction > 0.5,TRUE,FALSE)
+  if (result == dat_predict$vaxx[i]){
+    correct = correct +1
+    }
+}
+(percent_correct <- correct/nrow(dat_predict))
+```
+
+<p>It looks like Probit function is giving a horrible prediction. I might have reversed things but it doesn't look like so. Either way, let me proceed to share two articales that I read this week. </p>
+
+<p> First one is "The Effects of Rent Control Expansion on Tenants, Landlords, and Inequality: Evidence from San Francisco", found on AEA: https://pubs.aeaweb.org/doi/pdfplus/10.1257/aer.20181289. Second artical is "https://pubs.aeaweb.org/doi/pdfplus/10.1257/pandp.20191022", found on AEA as well: https://pubs.aeaweb.org/doi/pdfplus/10.1257/pandp.20191022 </p>
+
+<p> First articule focuses on how rent control has affected housing suplly as well as creating inequality in the San Francisco region. Main datasets being used include Infurtor housing history data, census tract data, and parcel history data. Some data appears to be behind pay wall (Infurtor data) but others are available online. Main technique being used is linear regression and analysis of R-squared value. A two-step process is also being implemented, and probability distribution and techniques such as Bayes' theorem is being used as well. Summary statistics and time series data are presented in multiple occasions. The article concludes that rent control has substantively different impacts on income inequality inthe short run vs in the long run. The result is interesting: for short run, rent control actually increased income inequality, yet for long run, when landlord starts to balance the housing supply in a market economy, income inequality went down. This is contrary to what politicians are claiming: landlords are responsible for housing supply shortage and rent control is helping people to get affordable houses. </p>
+
+<p>Second article is simpler. It focuses on Cambridge, MA, and how it has increased economic value and reduced crime as a result of ending rent control. Census data is used, and time series data/hypothesis testing is being used to determine the significance of tested result. The conclusion is that ending rent control increased the value of Cambridge residential properties by approximately 2 billion dolalrs as of 2005, adjusted for 5% discount rate, and a saving of 9.8 million dollars in the cost of reduced crime. </p>
